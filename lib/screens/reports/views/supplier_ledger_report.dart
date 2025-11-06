@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../providers/purchase_provider.dart';
 import '../../../providers/supplier_provider.dart';
 import '../../../db/app_database.dart';
+import '../../../services/pdf_service.dart';
 
 class SupplierLedgerReport extends ConsumerStatefulWidget {
   const SupplierLedgerReport({super.key});
@@ -32,11 +33,7 @@ class _SupplierLedgerReportState extends ConsumerState<SupplierLedgerReport> {
           IconButton(
             icon: const Icon(Icons.download),
             tooltip: 'Export to PDF',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('PDF export coming soon')),
-              );
-            },
+            onPressed: () => _exportToPdf(purchasesAsync, suppliersAsync),
           ),
         ],
       ),
@@ -334,6 +331,213 @@ class _SupplierLedgerReportState extends ConsumerState<SupplierLedgerReport> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('Error: $error')),
       ),
+    );
+  }
+
+  Future<void> _exportToPdf(
+    AsyncValue<List<Purchase>> purchasesAsync,
+    AsyncValue<List<Supplier>> suppliersAsync,
+  ) async {
+    await purchasesAsync.when(
+      data: (purchases) async {
+        await suppliersAsync.when(
+          data: (suppliers) async {
+            try {
+              final dateFormat = DateFormat('dd MMM yyyy');
+              final currencyFormat = NumberFormat.currency(symbol: '₹');
+
+              // Apply same filters as UI
+              var filteredPurchases = purchases.where((p) {
+                if (p.purchaseDate.isBefore(_startDate) ||
+                    p.purchaseDate
+                        .isAfter(_endDate.add(const Duration(days: 1)))) {
+                  return false;
+                }
+                if (_selectedSupplier != null &&
+                    p.supplierId != _selectedSupplier) {
+                  return false;
+                }
+                return true;
+              }).toList();
+
+              // Group purchases by supplier
+              Map<String, List<Purchase>> purchasesBySupplier = {};
+              for (final purchase in filteredPurchases) {
+                if (!purchasesBySupplier.containsKey(purchase.supplierId)) {
+                  purchasesBySupplier[purchase.supplierId] = [];
+                }
+                purchasesBySupplier[purchase.supplierId]!.add(purchase);
+              }
+
+              // Calculate supplier totals
+              Map<String, _SupplierData> supplierData = {};
+              for (final entry in purchasesBySupplier.entries) {
+                final supplier = suppliers.firstWhere(
+                  (s) => s.uuid == entry.key,
+                  orElse: () => Supplier(
+                    uuid: entry.key,
+                    name: 'Unknown',
+                    contactPerson: '',
+                    phone: '',
+                    email: '',
+                    address: '',
+                    gstNo: '',
+                    panNo: '',
+                    currentBalance: 0,
+                    isActive: true,
+                    createdAt: DateTime.now(),
+                    lastModified: DateTime.now(),
+                    isSynced: false,
+                    sourceDevice: '',
+                  ),
+                );
+
+                double totalPurchases = 0;
+                double creditAmount = 0;
+                int purchaseCount = entry.value.length;
+
+                for (final purchase in entry.value) {
+                  totalPurchases += purchase.totalAmount;
+                  if (purchase.paymentMode == 'Credit') {
+                    creditAmount += purchase.totalAmount;
+                  }
+                }
+
+                supplierData[entry.key] = _SupplierData(
+                  supplier: supplier,
+                  totalPurchases: totalPurchases,
+                  creditAmount: creditAmount,
+                  purchaseCount: purchaseCount,
+                  currentBalance: supplier.currentBalance,
+                );
+              }
+
+              // Calculate overall totals
+              double grandTotal = 0;
+              double totalCredit = 0;
+              double totalOutstanding = 0;
+
+              for (final data in supplierData.values) {
+                grandTotal += data.totalPurchases;
+                totalCredit += data.creditAmount;
+                totalOutstanding += data.currentBalance;
+              }
+
+              // Prepare filters list
+              List<String> filters = [];
+              filters.add(
+                  'Period: ${dateFormat.format(_startDate)} - ${dateFormat.format(_endDate)}');
+              if (_selectedSupplier != null) {
+                final supplier = suppliers.firstWhere(
+                  (s) => s.uuid == _selectedSupplier,
+                  orElse: () => Supplier(
+                    uuid: _selectedSupplier!,
+                    name: 'Unknown',
+                    contactPerson: '',
+                    phone: '',
+                    email: '',
+                    address: '',
+                    gstNo: '',
+                    panNo: '',
+                    currentBalance: 0,
+                    isActive: true,
+                    createdAt: DateTime.now(),
+                    lastModified: DateTime.now(),
+                    isSynced: false,
+                    sourceDevice: '',
+                  ),
+                );
+                filters.add('Supplier: ${supplier.name}');
+              }
+
+              // Prepare table data
+              final tableHeaders = [
+                [
+                  'Supplier',
+                  'Purchases',
+                  'Total Amount',
+                  'Credit',
+                  'Outstanding'
+                ],
+              ];
+              final tableData = supplierData.values.map((data) {
+                return [
+                  data.supplier.name,
+                  data.purchaseCount.toString(),
+                  currencyFormat.format(data.totalPurchases),
+                  currencyFormat.format(data.creditAmount),
+                  currencyFormat.format(data.currentBalance),
+                ];
+              }).toList();
+
+              // Create report config
+              final config = ReportConfig(
+                title: 'Supplier Ledger Report',
+                subtitle: 'Vendor Payment & Outstanding Analysis',
+                generatedDate: DateTime.now(),
+                filters: filters,
+                summaryData: {
+                  'Active Suppliers': supplierData.length.toString(),
+                  'Total Purchases': currencyFormat.format(grandTotal),
+                  'Credit Purchases': currencyFormat.format(totalCredit),
+                  'Outstanding': currencyFormat.format(totalOutstanding),
+                },
+                tableHeaders: tableHeaders,
+                tableData: tableData,
+              );
+
+              // Generate PDF
+              final pdfService = PdfService();
+              final file = await pdfService.generateReport(config);
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('PDF saved: ${file.path}'),
+                    backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error generating PDF: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
+          },
+          loading: () async {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Loading suppliers...')),
+            );
+          },
+          error: (error, stack) async {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: $error'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          },
+        );
+      },
+      loading: () async {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Loading purchases...')),
+        );
+      },
+      error: (error, stack) async {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      },
     );
   }
 
