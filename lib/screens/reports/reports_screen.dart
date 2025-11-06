@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hotel_inventory_management/widgets/app_drawer.dart';
 import 'package:hotel_inventory_management/screens/reports/views/stock_summary_report.dart';
+import 'package:hotel_inventory_management/screens/reports/views/purchase_report.dart';
+import 'package:hotel_inventory_management/screens/reports/views/issue_report.dart';
+import 'package:hotel_inventory_management/screens/reports/views/wastage_report.dart';
+import 'package:hotel_inventory_management/screens/reports/views/recipe_costing_report.dart';
+import 'package:hotel_inventory_management/screens/reports/views/supplier_ledger_report.dart';
 
 class ReportsScreen extends ConsumerWidget {
   const ReportsScreen({super.key});
@@ -34,7 +39,12 @@ class ReportsScreen extends ConsumerWidget {
             description: 'All purchase transactions',
             icon: Icons.shopping_cart,
             onTap: () {
-              // TODO: Generate report
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PurchaseReport(),
+                ),
+              );
             },
           ),
           _ReportCard(
@@ -42,7 +52,12 @@ class ReportsScreen extends ConsumerWidget {
             description: 'All issue vouchers',
             icon: Icons.send,
             onTap: () {
-              // TODO: Generate report
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const IssueReport(),
+                ),
+              );
             },
           ),
           _ReportCard(
@@ -50,7 +65,12 @@ class ReportsScreen extends ConsumerWidget {
             description: 'Wastage and returns summary',
             icon: Icons.delete,
             onTap: () {
-              // TODO: Generate report
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const WastageReport(),
+                ),
+              );
             },
           ),
           _ReportCard(
@@ -58,7 +78,12 @@ class ReportsScreen extends ConsumerWidget {
             description: 'Menu item costs and margins',
             icon: Icons.restaurant_menu,
             onTap: () {
-              // TODO: Generate report
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const RecipeCostingReport(),
+                ),
+              );
             },
           ),
           _ReportCard(
@@ -66,7 +91,12 @@ class ReportsScreen extends ConsumerWidget {
             description: 'Supplier-wise purchase history',
             icon: Icons.business,
             onTap: () {
-              // TODO: Generate report
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SupplierLedgerReport(),
+                ),
+              );
             },
           ),
         ],
