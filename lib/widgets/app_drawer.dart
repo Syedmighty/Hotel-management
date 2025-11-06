@@ -98,6 +98,22 @@ class AppDrawer extends ConsumerWidget {
               context.go('/wastage');
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.fact_check),
+            title: const Text('Physical Count'),
+            onTap: () {
+              Navigator.pop(context);
+              context.go('/physical-counts');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.swap_horiz),
+            title: const Text('Stock Transfer'),
+            onTap: () {
+              Navigator.pop(context);
+              context.go('/stock-transfers');
+            },
+          ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.assessment),

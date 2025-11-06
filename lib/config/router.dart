@@ -13,6 +13,11 @@ import 'package:hotel_inventory_management/screens/purchase/purchase_form_screen
 import 'package:hotel_inventory_management/screens/issue/issue_list_screen.dart';
 import 'package:hotel_inventory_management/screens/issue/issue_form_screen.dart';
 import 'package:hotel_inventory_management/screens/wastage/wastage_list_screen.dart';
+import 'package:hotel_inventory_management/screens/wastage/wastage_form_screen.dart';
+import 'package:hotel_inventory_management/screens/physical_count/physical_count_list_screen.dart';
+import 'package:hotel_inventory_management/screens/physical_count/physical_count_form_screen.dart';
+import 'package:hotel_inventory_management/screens/stock_transfer/stock_transfer_list_screen.dart';
+import 'package:hotel_inventory_management/screens/stock_transfer/stock_transfer_form_screen.dart';
 import 'package:hotel_inventory_management/screens/reports/reports_screen.dart';
 import 'package:hotel_inventory_management/screens/settings/settings_screen.dart';
 
@@ -145,6 +150,65 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/wastage',
         name: 'wastage',
         builder: (context, state) => const WastageListScreen(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            name: 'new-wastage',
+            builder: (context, state) => const WastageFormScreen(),
+          ),
+          GoRoute(
+            path: 'edit/:id',
+            name: 'edit-wastage',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return WastageFormScreen(wastageId: id);
+            },
+          ),
+        ],
+      ),
+
+      // Physical Count Routes
+      GoRoute(
+        path: '/physical-counts',
+        name: 'physical-counts',
+        builder: (context, state) => const PhysicalCountListScreen(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            name: 'new-physical-count',
+            builder: (context, state) => const PhysicalCountFormScreen(),
+          ),
+          GoRoute(
+            path: 'edit/:id',
+            name: 'edit-physical-count',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return PhysicalCountFormScreen(countId: id);
+            },
+          ),
+        ],
+      ),
+
+      // Stock Transfer Routes
+      GoRoute(
+        path: '/stock-transfers',
+        name: 'stock-transfers',
+        builder: (context, state) => const StockTransferListScreen(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            name: 'new-stock-transfer',
+            builder: (context, state) => const StockTransferFormScreen(),
+          ),
+          GoRoute(
+            path: 'edit/:id',
+            name: 'edit-stock-transfer',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return StockTransferFormScreen(transferId: id);
+            },
+          ),
+        ],
       ),
 
       // Reports
