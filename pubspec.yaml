@@ -74,6 +74,9 @@ dependencies:
   # Shared Preferences
   shared_preferences: ^2.2.2
 
+  # Archive/ZIP
+  archive: ^3.4.10
+
   # Connectivity
   connectivity_plus: ^5.0.2
 
