@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../providers/wastage_provider.dart';
 import '../../../db/app_database.dart';
 import '../../../config/constants.dart';
+import '../../../services/pdf_service.dart';
 
 class WastageReport extends ConsumerStatefulWidget {
   const WastageReport({super.key});
@@ -31,11 +32,7 @@ class _WastageReportState extends ConsumerState<WastageReport> {
           IconButton(
             icon: const Icon(Icons.download),
             tooltip: 'Export to PDF',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('PDF export coming soon')),
-              );
-            },
+            onPressed: () => _exportToPdf(wastagesAsync),
           ),
         ],
       ),
@@ -387,6 +384,127 @@ class _WastageReportState extends ConsumerState<WastageReport> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('Error: $error')),
       ),
+    );
+  }
+
+  Future<void> _exportToPdf(AsyncValue<List<Wastage>> wastagesAsync) async {
+    await wastagesAsync.when(
+      data: (wastages) async {
+        try {
+          final dateFormat = DateFormat('dd MMM yyyy');
+          final currencyFormat = NumberFormat.currency(symbol: '₹');
+
+          // Apply same filters as UI
+          var filteredWastages = wastages.where((wastage) {
+            if (wastage.wastageDate.isBefore(_startDate) ||
+                wastage.wastageDate
+                    .isAfter(_endDate.add(const Duration(days: 1)))) {
+              return false;
+            }
+            if (_selectedType != null && wastage.type != _selectedType) {
+              return false;
+            }
+            if (_selectedReason != null && wastage.reason != _selectedReason) {
+              return false;
+            }
+            return true;
+          }).toList();
+
+          // Sort by date descending
+          filteredWastages.sort((a, b) => b.wastageDate.compareTo(a.wastageDate));
+
+          // Calculate summary
+          double totalWastageAmount = 0;
+          double totalReturnAmount = 0;
+
+          for (final wastage in filteredWastages) {
+            if (wastage.type == 'Wastage') {
+              totalWastageAmount += wastage.totalAmount;
+            } else {
+              totalReturnAmount += wastage.totalAmount;
+            }
+          }
+
+          final totalAmount = totalWastageAmount + totalReturnAmount;
+
+          // Prepare filters list
+          List<String> filters = [];
+          filters.add(
+              'Period: ${dateFormat.format(_startDate)} - ${dateFormat.format(_endDate)}');
+          if (_selectedType != null) {
+            filters.add('Type: $_selectedType');
+          }
+          if (_selectedReason != null) {
+            filters.add('Reason: $_selectedReason');
+          }
+
+          // Prepare table data
+          final tableHeaders = [
+            ['Reference No', 'Date', 'Type', 'Reason', 'Amount'],
+          ];
+          final tableData = filteredWastages.map((wastage) {
+            return [
+              wastage.referenceNo,
+              dateFormat.format(wastage.wastageDate),
+              wastage.type,
+              wastage.reason,
+              currencyFormat.format(wastage.totalAmount),
+            ];
+          }).toList();
+
+          // Create report config
+          final config = ReportConfig(
+            title: 'Wastage & Returns Report',
+            subtitle: 'Loss Prevention and Return Tracking',
+            generatedDate: DateTime.now(),
+            filters: filters,
+            summaryData: {
+              'Total Records': filteredWastages.length.toString(),
+              'Total Value': currencyFormat.format(totalAmount),
+              'Wastage': currencyFormat.format(totalWastageAmount),
+              'Returns': currencyFormat.format(totalReturnAmount),
+            },
+            tableHeaders: tableHeaders,
+            tableData: tableData,
+          );
+
+          // Generate PDF
+          final pdfService = PdfService();
+          final file = await pdfService.generateReport(config);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('PDF saved: ${file.path}'),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error generating PDF: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      },
+      loading: () async {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Loading data...')),
+        );
+      },
+      error: (error, stack) async {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      },
     );
   }
 

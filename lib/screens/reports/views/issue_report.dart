@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../providers/issue_provider.dart';
 import '../../../db/app_database.dart';
 import '../../../config/constants.dart';
+import '../../../services/pdf_service.dart';
 
 class IssueReport extends ConsumerStatefulWidget {
   const IssueReport({super.key});
@@ -32,11 +33,7 @@ class _IssueReportState extends ConsumerState<IssueReport> {
           IconButton(
             icon: const Icon(Icons.download),
             tooltip: 'Export to PDF',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('PDF export coming soon')),
-              );
-            },
+            onPressed: () => _exportToPdf(issuesAsync),
           ),
         ],
       ),
@@ -374,6 +371,138 @@ class _IssueReportState extends ConsumerState<IssueReport> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('Error: $error')),
       ),
+    );
+  }
+
+  Future<void> _exportToPdf(AsyncValue<List<Issue>> issuesAsync) async {
+    await issuesAsync.when(
+      data: (issues) async {
+        try {
+          final dateFormat = DateFormat('dd MMM yyyy');
+          final currencyFormat = NumberFormat.currency(symbol: '₹');
+
+          // Apply same filters as UI
+          var filteredIssues = issues.where((issue) {
+            if (issue.issueDate.isBefore(_startDate) ||
+                issue.issueDate.isAfter(_endDate.add(const Duration(days: 1)))) {
+              return false;
+            }
+            if (_selectedDepartment != null &&
+                issue.department != _selectedDepartment) {
+              return false;
+            }
+            if (_selectedIssuedBy != null &&
+                issue.issuedBy != _selectedIssuedBy) {
+              return false;
+            }
+            if (_selectedStatus != null && issue.status != _selectedStatus) {
+              return false;
+            }
+            return true;
+          }).toList();
+
+          // Sort by date descending
+          filteredIssues.sort((a, b) => b.issueDate.compareTo(a.issueDate));
+
+          // Calculate summary
+          double totalAmount = 0;
+          int approvedCount = 0;
+          int pendingCount = 0;
+          Map<String, double> departmentTotals = {};
+
+          for (final issue in filteredIssues) {
+            totalAmount += issue.totalAmount;
+            departmentTotals[issue.department] =
+                (departmentTotals[issue.department] ?? 0) + issue.totalAmount;
+            if (issue.status == 'Approved') {
+              approvedCount++;
+            } else {
+              pendingCount++;
+            }
+          }
+
+          // Prepare filters list
+          List<String> filters = [];
+          filters.add(
+              'Period: ${dateFormat.format(_startDate)} - ${dateFormat.format(_endDate)}');
+          if (_selectedDepartment != null) {
+            filters.add('Department: $_selectedDepartment');
+          }
+          if (_selectedIssuedBy != null) {
+            filters.add('Issued By: $_selectedIssuedBy');
+          }
+          if (_selectedStatus != null) {
+            filters.add('Status: $_selectedStatus');
+          }
+
+          // Prepare table data
+          final tableHeaders = [
+            ['Issue No', 'Date', 'Department', 'Issued By', 'Amount', 'Status'],
+          ];
+          final tableData = filteredIssues.map((issue) {
+            return [
+              issue.issueNo,
+              dateFormat.format(issue.issueDate),
+              issue.department,
+              issue.issuedBy,
+              currencyFormat.format(issue.totalAmount),
+              issue.status,
+            ];
+          }).toList();
+
+          // Create report config
+          final config = ReportConfig(
+            title: 'Issue Report',
+            subtitle: 'Department Consumption Tracking',
+            generatedDate: DateTime.now(),
+            filters: filters,
+            summaryData: {
+              'Total Issues': filteredIssues.length.toString(),
+              'Total Value': currencyFormat.format(totalAmount),
+              'Approved': approvedCount.toString(),
+              'Pending': pendingCount.toString(),
+            },
+            tableHeaders: tableHeaders,
+            tableData: tableData,
+          );
+
+          // Generate PDF
+          final pdfService = PdfService();
+          final file = await pdfService.generateReport(config);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('PDF saved: ${file.path}'),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error generating PDF: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      },
+      loading: () async {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Loading data...')),
+        );
+      },
+      error: (error, stack) async {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      },
     );
   }
 
