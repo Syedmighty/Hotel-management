@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:hotel_inventory_management/providers/auth_provider.dart';
 import 'package:hotel_inventory_management/screens/auth/login_screen.dart';
 import 'package:hotel_inventory_management/screens/dashboard/dashboard_screen.dart';
+import 'package:hotel_inventory_management/screens/products/product_list_screen.dart';
+import 'package:hotel_inventory_management/screens/products/product_form_screen.dart';
 import 'package:hotel_inventory_management/screens/purchase/purchase_list_screen.dart';
 import 'package:hotel_inventory_management/screens/purchase/purchase_form_screen.dart';
 import 'package:hotel_inventory_management/screens/issue/issue_list_screen.dart';
@@ -46,6 +48,28 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/',
         name: 'dashboard',
         builder: (context, state) => const DashboardScreen(),
+      ),
+
+      // Product Routes
+      GoRoute(
+        path: '/products',
+        name: 'products',
+        builder: (context, state) => const ProductListScreen(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            name: 'new-product',
+            builder: (context, state) => const ProductFormScreen(),
+          ),
+          GoRoute(
+            path: ':id',
+            name: 'edit-product',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return ProductFormScreen(productId: id);
+            },
+          ),
+        ],
       ),
 
       // Purchase Routes

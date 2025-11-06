@@ -58,6 +58,15 @@ class AppDrawer extends ConsumerWidget {
           ),
           const Divider(),
           ListTile(
+            leading: const Icon(Icons.inventory_2),
+            title: const Text('Products'),
+            onTap: () {
+              Navigator.pop(context);
+              context.go('/products');
+            },
+          ),
+          const Divider(),
+          ListTile(
             leading: const Icon(Icons.shopping_cart),
             title: const Text('Purchases'),
             onTap: () {
