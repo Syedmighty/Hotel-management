@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hotel_inventory_management/widgets/app_drawer.dart';
+import 'package:hotel_inventory_management/screens/reports/views/stock_summary_report.dart';
 
 class ReportsScreen extends ConsumerWidget {
   const ReportsScreen({super.key});
@@ -20,7 +21,12 @@ class ReportsScreen extends ConsumerWidget {
             description: 'Current stock levels and valuations',
             icon: Icons.inventory,
             onTap: () {
-              // TODO: Generate report
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const StockSummaryReport(),
+                ),
+              );
             },
           ),
           _ReportCard(
