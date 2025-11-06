@@ -6,6 +6,8 @@ import 'package:hotel_inventory_management/screens/auth/login_screen.dart';
 import 'package:hotel_inventory_management/screens/dashboard/dashboard_screen.dart';
 import 'package:hotel_inventory_management/screens/products/product_list_screen.dart';
 import 'package:hotel_inventory_management/screens/products/product_form_screen.dart';
+import 'package:hotel_inventory_management/screens/suppliers/supplier_list_screen.dart';
+import 'package:hotel_inventory_management/screens/suppliers/supplier_form_screen.dart';
 import 'package:hotel_inventory_management/screens/purchase/purchase_list_screen.dart';
 import 'package:hotel_inventory_management/screens/purchase/purchase_form_screen.dart';
 import 'package:hotel_inventory_management/screens/issue/issue_list_screen.dart';
@@ -67,6 +69,28 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final id = state.pathParameters['id']!;
               return ProductFormScreen(productId: id);
+            },
+          ),
+        ],
+      ),
+
+      // Supplier Routes
+      GoRoute(
+        path: '/suppliers',
+        name: 'suppliers',
+        builder: (context, state) => const SupplierListScreen(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            name: 'new-supplier',
+            builder: (context, state) => const SupplierFormScreen(),
+          ),
+          GoRoute(
+            path: ':id',
+            name: 'edit-supplier',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return SupplierFormScreen(supplierId: id);
             },
           ),
         ],
