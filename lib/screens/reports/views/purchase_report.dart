@@ -5,6 +5,7 @@ import '../../../providers/purchase_provider.dart';
 import '../../../providers/supplier_provider.dart';
 import '../../../db/app_database.dart';
 import '../../../config/constants.dart';
+import '../../../services/pdf_service.dart';
 
 class PurchaseReport extends ConsumerStatefulWidget {
   const PurchaseReport({super.key});
@@ -34,13 +35,7 @@ class _PurchaseReportState extends ConsumerState<PurchaseReport> {
           IconButton(
             icon: const Icon(Icons.download),
             tooltip: 'Export to PDF',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('PDF export coming soon'),
-                ),
-              );
-            },
+            onPressed: () => _exportToPdf(purchasesAsync, suppliersAsync),
           ),
         ],
       ),
@@ -584,6 +579,163 @@ class _PurchaseReportState extends ConsumerState<PurchaseReport> {
             ),
           ),
         );
+      },
+    );
+  }
+
+  Future<void> _exportToPdf(
+    AsyncValue<List<Purchase>> purchasesAsync,
+    AsyncValue<List<Supplier>> suppliersAsync,
+  ) async {
+    await purchasesAsync.when(
+      data: (purchases) async {
+        await suppliersAsync.when(
+          data: (suppliers) async {
+            try {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Generating PDF...'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
+
+              // Apply filters
+              var filteredPurchases = purchases.where((p) {
+                if (p.purchaseDate.isBefore(_startDate) ||
+                    p.purchaseDate.isAfter(_endDate.add(const Duration(days: 1)))) {
+                  return false;
+                }
+                if (_selectedSupplier != null && p.supplierId != _selectedSupplier) {
+                  return false;
+                }
+                if (_selectedPaymentMode != null &&
+                    p.paymentMode != _selectedPaymentMode) {
+                  return false;
+                }
+                if (_selectedStatus != null && p.status != _selectedStatus) {
+                  return false;
+                }
+                return true;
+              }).toList();
+
+              filteredPurchases.sort((a, b) => b.purchaseDate.compareTo(a.purchaseDate));
+
+              // Calculate summary
+              double totalAmount = 0;
+              double paidAmount = 0;
+              double creditAmount = 0;
+
+              for (final purchase in filteredPurchases) {
+                totalAmount += purchase.totalAmount;
+                if (purchase.paymentMode == 'Cash' || purchase.paymentMode == 'Card') {
+                  paidAmount += purchase.totalAmount;
+                } else if (purchase.paymentMode == 'Credit') {
+                  creditAmount += purchase.totalAmount;
+                }
+              }
+
+              final currencyFormat = NumberFormat.currency(symbol: '₹');
+              final dateFormat = DateFormat('dd MMM yyyy');
+
+              // Prepare filters list
+              List<String> filters = [];
+              filters.add('Period: ${dateFormat.format(_startDate)} - ${dateFormat.format(_endDate)}');
+              if (_selectedSupplier != null) {
+                final supplier = suppliers.firstWhere((s) => s.uuid == _selectedSupplier);
+                filters.add('Supplier: ${supplier.name}');
+              }
+              if (_selectedPaymentMode != null) {
+                filters.add('Payment Mode: $_selectedPaymentMode');
+              }
+              if (_selectedStatus != null) {
+                filters.add('Status: $_selectedStatus');
+              }
+
+              // Prepare table data
+              final tableHeaders = [
+                ['Purchase No', 'Date', 'Supplier', 'Payment', 'Amount', 'Status'],
+              ];
+
+              final tableData = filteredPurchases.map((purchase) {
+                final supplier =
+                    suppliers.firstWhere((s) => s.uuid == purchase.supplierId);
+                return [
+                  purchase.purchaseNo,
+                  dateFormat.format(purchase.purchaseDate),
+                  supplier.name,
+                  purchase.paymentMode,
+                  currencyFormat.format(purchase.totalAmount),
+                  purchase.status,
+                ];
+              }).toList();
+
+              // Create report config
+              final config = ReportConfig(
+                title: 'Purchase Report',
+                subtitle: 'Procurement Transaction History',
+                generatedDate: DateTime.now(),
+                filters: filters,
+                summaryData: {
+                  'Total Purchases': filteredPurchases.length.toString(),
+                  'Total Amount': currencyFormat.format(totalAmount),
+                  'Paid': currencyFormat.format(paidAmount),
+                  'Credit': currencyFormat.format(creditAmount),
+                },
+                tableHeaders: tableHeaders,
+                tableData: tableData,
+              );
+
+              // Generate PDF
+              final pdfService = PdfService();
+              final file = await pdfService.generateReport(config);
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('PDF saved: ${file.path}'),
+                    backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 4),
+                    action: SnackBarAction(
+                      label: 'OK',
+                      textColor: Colors.white,
+                      onPressed: () {},
+                    ),
+                  ),
+                );
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error generating PDF: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
+          },
+          loading: () {},
+          error: (_, __) {},
+        );
+      },
+      loading: () {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Loading data...')),
+          );
+        }
+      },
+      error: (error, stack) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       },
     );
   }
