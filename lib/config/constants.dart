@@ -75,6 +75,21 @@ class AppConstants {
     'Room Service',
   ];
 
+  // Wastage Reasons
+  static const List<String> wastageReasons = [
+    'Spoilage',
+    'Expiry',
+    'Breakage',
+    'Spillage',
+    'Contamination',
+    'Overproduction',
+    'Quality Issue',
+    'Pest Infestation',
+    'Equipment Failure',
+    'Power Outage',
+    'Other',
+  ];
+
   // Sync
   static const int syncBatchSize = 100;
   static const Duration syncTimeout = Duration(seconds: 30);
