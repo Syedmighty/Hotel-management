@@ -4,6 +4,7 @@ import 'package:hotel_inventory_management/config/router.dart';
 import 'package:hotel_inventory_management/config/theme.dart';
 import 'package:hotel_inventory_management/db/app_database.dart';
 import 'package:hotel_inventory_management/services/backup_service.dart';
+import 'package:hotel_inventory_management/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
@@ -12,8 +13,14 @@ void main() async {
   // Initialize database
   final database = AppDatabase();
 
+  // Initialize notifications
+  await NotificationService().initialize();
+
   // Perform auto-backup if due
   _performAutoBackupIfDue();
+
+  // Check for low stock items and send notifications
+  _checkLowStockItems(database);
 
   runApp(
     ProviderScope(
@@ -46,6 +53,33 @@ Future<void> _performAutoBackupIfDue() async {
   } catch (e) {
     // Log error but don't block app startup
     debugPrint('Auto-backup failed: $e');
+  }
+}
+
+/// Check for low stock items and send notifications
+Future<void> _checkLowStockItems(AppDatabase database) async {
+  try {
+    final notificationService = NotificationService();
+
+    // Get all stock items
+    final stockItems = await database.stockItemDao.getAllStockItems();
+
+    // Check each item for low stock
+    for (final item in stockItems) {
+      if (item.currentStock < item.minStock) {
+        await notificationService.showLowStockNotification(
+          itemName: item.itemName,
+          currentStock: item.currentStock,
+          minStock: item.minStock,
+          unit: item.unit,
+        );
+        debugPrint(
+            'Low stock alert: ${item.itemName} (${item.currentStock} ${item.unit})');
+      }
+    }
+  } catch (e) {
+    // Log error but don't block app startup
+    debugPrint('Low stock check failed: $e');
   }
 }
 
