@@ -116,6 +116,15 @@ class AppDrawer extends ConsumerWidget {
           ),
           const Divider(),
           ListTile(
+            leading: const Icon(Icons.restaurant_menu),
+            title: const Text('Recipe Management'),
+            onTap: () {
+              Navigator.pop(context);
+              context.go('/recipes');
+            },
+          ),
+          const Divider(),
+          ListTile(
             leading: const Icon(Icons.assessment),
             title: const Text('Reports'),
             onTap: () {

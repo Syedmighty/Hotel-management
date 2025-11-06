@@ -18,6 +18,8 @@ import 'package:hotel_inventory_management/screens/physical_count/physical_count
 import 'package:hotel_inventory_management/screens/physical_count/physical_count_form_screen.dart';
 import 'package:hotel_inventory_management/screens/stock_transfer/stock_transfer_list_screen.dart';
 import 'package:hotel_inventory_management/screens/stock_transfer/stock_transfer_form_screen.dart';
+import 'package:hotel_inventory_management/screens/recipes/recipe_list_screen.dart';
+import 'package:hotel_inventory_management/screens/recipes/recipe_form_screen.dart';
 import 'package:hotel_inventory_management/screens/reports/reports_screen.dart';
 import 'package:hotel_inventory_management/screens/settings/settings_screen.dart';
 
@@ -206,6 +208,28 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final id = state.pathParameters['id']!;
               return StockTransferFormScreen(transferId: id);
+            },
+          ),
+        ],
+      ),
+
+      // Recipe Routes
+      GoRoute(
+        path: '/recipes',
+        name: 'recipes',
+        builder: (context, state) => const RecipeListScreen(),
+        routes: [
+          GoRoute(
+            path: 'new',
+            name: 'new-recipe',
+            builder: (context, state) => const RecipeFormScreen(),
+          ),
+          GoRoute(
+            path: 'edit/:id',
+            name: 'edit-recipe',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return RecipeFormScreen(recipeId: id);
             },
           ),
         ],
