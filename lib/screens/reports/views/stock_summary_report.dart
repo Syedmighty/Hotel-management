@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../providers/product_provider.dart';
 import '../../../db/app_database.dart';
+import '../../../services/pdf_service.dart';
 
 class StockSummaryReport extends ConsumerStatefulWidget {
   const StockSummaryReport({super.key});
@@ -28,13 +29,7 @@ class _StockSummaryReportState extends ConsumerState<StockSummaryReport> {
           IconButton(
             icon: const Icon(Icons.download),
             tooltip: 'Export to PDF',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('PDF export coming soon'),
-                ),
-              );
-            },
+            onPressed: () => _exportToPdf(productsAsync),
           ),
         ],
       ),
@@ -269,6 +264,131 @@ class _StockSummaryReportState extends ConsumerState<StockSummaryReport> {
           child: Text('Error: $error'),
         ),
       ),
+    );
+  }
+
+  Future<void> _exportToPdf(AsyncValue<List<Product>> productsAsync) async {
+    await productsAsync.when(
+      data: (products) async {
+        try {
+          // Show loading indicator
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Generating PDF...'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+
+          // Filter products
+          var filteredProducts = products.where((p) => p.isActive).toList();
+          if (_selectedCategory != null) {
+            filteredProducts = filteredProducts
+                .where((p) => p.category == _selectedCategory)
+                .toList();
+          }
+
+          // Calculate summary data
+          double totalValue = 0;
+          int lowStockItems = 0;
+          int outOfStockItems = 0;
+
+          for (final product in filteredProducts) {
+            final value = product.currentStock * product.sellingRate;
+            totalValue += value;
+
+            if (product.currentStock <= 0) {
+              outOfStockItems++;
+            } else if (product.currentStock <= product.minStockLevel) {
+              lowStockItems++;
+            }
+          }
+
+          final currencyFormat = NumberFormat.currency(symbol: '₹');
+
+          // Prepare table data
+          final tableHeaders = [
+            ['Product', 'Category', 'Unit', 'Stock', 'Rate', 'Value'],
+          ];
+
+          final tableData = filteredProducts.map((product) {
+            final value = product.currentStock * product.sellingRate;
+            return [
+              product.name,
+              product.category,
+              product.unit,
+              product.currentStock.toStringAsFixed(2),
+              currencyFormat.format(product.purchaseRate),
+              currencyFormat.format(value),
+            ];
+          }).toList();
+
+          // Create report config
+          final config = ReportConfig(
+            title: 'Stock Summary Report',
+            subtitle: 'Current Inventory Levels and Valuations',
+            generatedDate: DateTime.now(),
+            filters: _selectedCategory != null
+                ? ['Category: $_selectedCategory']
+                : null,
+            summaryData: {
+              'Total Items': filteredProducts.length.toString(),
+              'Total Value': currencyFormat.format(totalValue),
+              'Low Stock': lowStockItems.toString(),
+              'Out of Stock': outOfStockItems.toString(),
+            },
+            tableHeaders: tableHeaders,
+            tableData: tableData,
+          );
+
+          // Generate PDF
+          final pdfService = PdfService();
+          final file = await pdfService.generateReport(config);
+
+          // Show success message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('PDF saved: ${file.path}'),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 4),
+                action: SnackBarAction(
+                  label: 'OK',
+                  textColor: Colors.white,
+                  onPressed: () {},
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error generating PDF: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      },
+      loading: () {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Loading data...')),
+          );
+        }
+      },
+      error: (error, stack) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $error'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      },
     );
   }
 }
