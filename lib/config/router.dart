@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hotel_inventory_management/providers/auth_provider.dart';
 import 'package:hotel_inventory_management/screens/auth/login_screen.dart';
 import 'package:hotel_inventory_management/screens/dashboard/dashboard_screen.dart';
 import 'package:hotel_inventory_management/screens/purchase/purchase_list_screen.dart';
@@ -12,8 +13,26 @@ import 'package:hotel_inventory_management/screens/reports/reports_screen.dart';
 import 'package:hotel_inventory_management/screens/settings/settings_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
+  final isAuthenticated = ref.watch(isAuthenticatedProvider);
+
   return GoRouter(
     initialLocation: '/login',
+    redirect: (context, state) {
+      final isLoginRoute = state.matchedLocation == '/login';
+
+      // If not authenticated and not on login page, redirect to login
+      if (!isAuthenticated && !isLoginRoute) {
+        return '/login';
+      }
+
+      // If authenticated and on login page, redirect to dashboard
+      if (isAuthenticated && isLoginRoute) {
+        return '/';
+      }
+
+      // No redirect needed
+      return null;
+    },
     routes: [
       // Auth Routes
       GoRoute(

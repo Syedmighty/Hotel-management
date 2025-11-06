@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hotel_inventory_management/config/theme.dart';
+import 'package:hotel_inventory_management/providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -30,17 +31,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Implement authentication logic
-      await Future.delayed(const Duration(seconds: 1));
+      final authNotifier = ref.read(authNotifierProvider.notifier);
+      final result = await authNotifier.login(
+        _usernameController.text.trim(),
+        _passwordController.text,
+      );
 
-      if (mounted) {
+      if (!mounted) return;
+
+      if (result.success) {
+        // Navigate to dashboard
         context.go('/');
+      } else {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.message ?? 'Login failed'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Login failed: $e'),
+            content: Text('An error occurred: $e'),
             backgroundColor: AppTheme.errorColor,
           ),
         );

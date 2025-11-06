@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hotel_inventory_management/config/constants.dart';
+import 'package:hotel_inventory_management/providers/auth_provider.dart';
 
-class AppDrawer extends StatelessWidget {
+class AppDrawer extends ConsumerWidget {
   const AppDrawer({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentUser = ref.watch(currentUserProvider);
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -33,9 +36,11 @@ class AppDrawer extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const Text(
-                  'Inventory Management',
-                  style: TextStyle(
+                Text(
+                  currentUser != null
+                      ? '${currentUser.username} (${currentUser.role})'
+                      : 'Inventory Management',
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 14,
                   ),
@@ -99,7 +104,7 @@ class AppDrawer extends StatelessWidget {
             title: const Text('Logout'),
             onTap: () {
               Navigator.pop(context);
-              _showLogoutDialog(context);
+              _showLogoutDialog(context, ref);
             },
           ),
         ],
@@ -107,21 +112,25 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  void _showLogoutDialog(BuildContext context) {
+  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Logout'),
         content: const Text('Are you sure you want to logout?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.go('/login');
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              final authNotifier = ref.read(authNotifierProvider.notifier);
+              await authNotifier.logout();
+              if (context.mounted) {
+                context.go('/login');
+              }
             },
             child: const Text('Logout'),
           ),

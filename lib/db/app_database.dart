@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
+import 'package:hotel_inventory_management/utils/password_hasher.dart';
 
 part 'app_database.g.dart';
 
@@ -517,11 +518,12 @@ class AppDatabase extends _$AppDatabase {
         ));
 
         // Create default admin user (password: admin123)
-        // Note: In production, force password change on first login
+        // IMPORTANT: Change this password after first login!
+        final adminPasswordHash = PasswordHasher.hashPassword('admin123');
         await into(users).insert(User(
           userId: 'admin',
           username: 'Administrator',
-          passwordHash: r'$2a$10$N9qo8uLOickgx2ZMRZoMye', // Placeholder - will be properly hashed
+          passwordHash: adminPasswordHash,
           role: 'Admin',
           permissions: '{"all": true}',
           isActive: true,
