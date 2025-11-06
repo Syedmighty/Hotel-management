@@ -4,6 +4,8 @@ import 'package:hotel_inventory_management/widgets/app_drawer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import '../../services/backup_service.dart';
+import 'package:intl/intl.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -589,14 +591,15 @@ class _BackupSettingsSectionState extends ConsumerState<_BackupSettingsSection> 
     setState(() => _isBackingUp = true);
 
     try {
-      // This is a placeholder - actual backup will be implemented
-      await Future.delayed(const Duration(seconds: 2));
+      final backupService = BackupService();
+      final backupFile = await backupService.createBackup();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Backup completed successfully'),
+          SnackBar(
+            content: Text('Backup created: ${backupFile.path.split('/').last}'),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -617,48 +620,307 @@ class _BackupSettingsSectionState extends ConsumerState<_BackupSettingsSection> 
   }
 
   Future<void> _viewBackups() async {
-    final directory = await getApplicationDocumentsDirectory();
-    final backupsDir = Directory('${directory.path}/HIMS_Backups');
+    try {
+      final backupService = BackupService();
+      final backups = await backupService.getBackups();
 
-    if (!await backupsDir.exists()) {
-      if (mounted) {
+      if (!mounted) return;
+
+      if (backups.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No backups found')),
         );
+        return;
       }
-      return;
-    }
 
-    final backups = backupsDir.listSync();
+      // Calculate total size
+      final totalSize = await backupService.getTotalBackupsSize();
+      final totalSizeMB = (totalSize / (1024 * 1024)).toStringAsFixed(2);
 
-    if (mounted) {
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Available Backups'),
+        builder: (dialogContext) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.backup),
+              const SizedBox(width: 8),
+              const Text('Available Backups'),
+            ],
+          ),
           content: SizedBox(
             width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: backups.length,
-              itemBuilder: (context, index) {
-                final backup = backups[index];
-                return ListTile(
-                  leading: const Icon(Icons.folder_zip),
-                  title: Text(backup.path.split('/').last),
-                  subtitle: Text('Size: ${File(backup.path).lengthSync()} bytes'),
-                );
-              },
+            height: 400,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Card(
+                  color: Colors.blue.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${backups.length} backups',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'Total: $totalSizeMB MB',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: backups.length,
+                    separatorBuilder: (context, index) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final backup = backups[index];
+                      return ListTile(
+                        leading: const Icon(Icons.folder_zip, color: Colors.blue),
+                        title: Text(
+                          backup.fileName,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Date: ${backup.formattedDate}'),
+                            Text('Size: ${backup.formattedSize}'),
+                          ],
+                        ),
+                        trailing: PopupMenuButton(
+                          icon: const Icon(Icons.more_vert),
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'restore',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.restore, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('Restore'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete, size: 20, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Delete', style: TextStyle(color: Colors.red)),
+                                ],
+                              ),
+                            ),
+                          ],
+                          onSelected: (value) {
+                            if (value == 'restore') {
+                              _confirmRestore(dialogContext, backup);
+                            } else if (value == 'delete') {
+                              _confirmDelete(dialogContext, backup);
+                            }
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Close'),
             ),
           ],
         ),
       );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading backups: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmRestore(BuildContext dialogContext, BackupInfo backup) async {
+    final confirmed = await showDialog<bool>(
+      context: dialogContext,
+      builder: (context) => AlertDialog(
+        title: const Text('Restore Backup?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This will replace the current database with the backup.',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Text('Backup: ${backup.fileName}'),
+            Text('Date: ${backup.formattedDate}'),
+            const SizedBox(height: 12),
+            const Text(
+              'A backup of the current database will be created before restoring.',
+              style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '⚠️ The app will need to restart after restore.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.orange,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+            ),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      Navigator.pop(dialogContext); // Close backups dialog
+      await _performRestore(backup);
+    }
+  }
+
+  Future<void> _performRestore(BackupInfo backup) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('Restoring backup...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final backupService = BackupService();
+      await backupService.restoreBackup(backup.file);
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Restore Complete'),
+            content: const Text(
+              'Database has been restored successfully.\n\n'
+              'Please restart the application for changes to take effect.',
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  // In production, you would implement proper app restart
+                  Navigator.pop(context);
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Restore failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmDelete(BuildContext dialogContext, BackupInfo backup) async {
+    final confirmed = await showDialog<bool>(
+      context: dialogContext,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Backup?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Are you sure you want to delete this backup?'),
+            const SizedBox(height: 12),
+            Text('File: ${backup.fileName}'),
+            Text('Date: ${backup.formattedDate}'),
+            Text('Size: ${backup.formattedSize}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final backupService = BackupService();
+        await backupService.deleteBackup(backup.file);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Backup deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+
+        // Refresh the backups list
+        Navigator.pop(dialogContext); // Close current dialog
+        await Future.delayed(const Duration(milliseconds: 300));
+        _viewBackups(); // Reopen with updated list
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Delete failed: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
