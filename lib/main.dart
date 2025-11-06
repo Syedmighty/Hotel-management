@@ -5,10 +5,17 @@ import 'package:hotel_inventory_management/config/theme.dart';
 import 'package:hotel_inventory_management/db/app_database.dart';
 import 'package:hotel_inventory_management/services/backup_service.dart';
 import 'package:hotel_inventory_management/services/notification_service.dart';
+import 'package:hotel_inventory_management/services/error_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize error handling first (catches all errors)
+  ErrorService().initialize();
+  ErrorService().logInfo('HIMS Application Starting', data: {
+    'timestamp': DateTime.now().toIso8601String(),
+  });
 
   // Initialize database
   final database = AppDatabase();
@@ -47,12 +54,19 @@ Future<void> _performAutoBackupIfDue() async {
       );
 
       if (backupFile != null) {
-        debugPrint('Auto-backup created: ${backupFile.path}');
+        ErrorService().logInfo('Auto-backup created', data: {
+          'file': backupFile.path,
+          'frequency': backupFrequency,
+        });
       }
     }
-  } catch (e) {
+  } catch (e, stackTrace) {
     // Log error but don't block app startup
-    debugPrint('Auto-backup failed: $e');
+    ErrorService().logError(
+      e,
+      stackTrace: stackTrace,
+      context: 'Auto-Backup on Startup',
+    );
   }
 }
 
@@ -64,6 +78,7 @@ Future<void> _checkLowStockItems(AppDatabase database) async {
     // Get all stock items
     final stockItems = await database.stockItemDao.getAllStockItems();
 
+    int lowStockCount = 0;
     // Check each item for low stock
     for (final item in stockItems) {
       if (item.currentStock < item.minStock) {
@@ -73,13 +88,23 @@ Future<void> _checkLowStockItems(AppDatabase database) async {
           minStock: item.minStock,
           unit: item.unit,
         );
-        debugPrint(
-            'Low stock alert: ${item.itemName} (${item.currentStock} ${item.unit})');
+        lowStockCount++;
       }
     }
-  } catch (e) {
+
+    if (lowStockCount > 0) {
+      ErrorService().logWarning('Low stock items detected', data: {
+        'count': lowStockCount,
+        'total_items': stockItems.length,
+      });
+    }
+  } catch (e, stackTrace) {
     // Log error but don't block app startup
-    debugPrint('Low stock check failed: $e');
+    ErrorService().logError(
+      e,
+      stackTrace: stackTrace,
+      context: 'Low Stock Check on Startup',
+    );
   }
 }
 
