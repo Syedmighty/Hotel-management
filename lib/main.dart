@@ -6,6 +6,7 @@ import 'package:hotel_inventory_management/db/app_database.dart';
 import 'package:hotel_inventory_management/services/backup_service.dart';
 import 'package:hotel_inventory_management/services/notification_service.dart';
 import 'package:hotel_inventory_management/services/error_service.dart';
+import 'package:hotel_inventory_management/services/sync_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
@@ -23,6 +24,9 @@ void main() async {
   // Initialize notifications
   await NotificationService().initialize();
 
+  // Initialize sync service (non-blocking)
+  _initializeSyncService(database);
+
   // Perform auto-backup if due
   _performAutoBackupIfDue();
 
@@ -37,6 +41,30 @@ void main() async {
       child: const HIMSApp(),
     ),
   );
+}
+
+/// Initialize sync service (runs in background, doesn't block app startup)
+Future<void> _initializeSyncService(AppDatabase database) async {
+  try {
+    ErrorService().logInfo('Initializing SyncService');
+    final syncService = SyncService();
+    await syncService.initialize(database);
+    ErrorService().logInfo('✅ SyncService initialized successfully', data: {
+      'discovery_port': SyncService.discoveryPort,
+      'sync_interval': '${SyncService.syncInterval.inMinutes} minutes',
+    });
+  } catch (e, stackTrace) {
+    // Log error but don't block app startup
+    ErrorService().logError(
+      e,
+      stackTrace: stackTrace,
+      context: 'SyncService Initialization',
+    );
+    ErrorService().logWarning(
+      'App will continue without sync functionality. '
+      'Check network connectivity and server availability.',
+    );
+  }
 }
 
 /// Check and perform auto-backup on app startup if due
@@ -75,28 +103,28 @@ Future<void> _checkLowStockItems(AppDatabase database) async {
   try {
     final notificationService = NotificationService();
 
-    // Get all stock items
-    final stockItems = await database.stockItemDao.getAllStockItems();
+    // Get low stock products (currentStock <= reorderLevel)
+    final lowStockProducts = await database.productDao.getLowStockProducts();
 
     int lowStockCount = 0;
-    // Check each item for low stock
-    for (final item in stockItems) {
-      if (item.currentStock < item.minStock) {
-        await notificationService.showLowStockNotification(
-          itemName: item.itemName,
-          currentStock: item.currentStock,
-          minStock: item.minStock,
-          unit: item.unit,
-        );
-        lowStockCount++;
-      }
+    // Send notification for each low stock item
+    for (final product in lowStockProducts) {
+      await notificationService.showLowStockNotification(
+        itemName: product.name,
+        currentStock: product.currentStock,
+        minStock: product.reorderLevel,
+        unit: product.unit,
+      );
+      lowStockCount++;
     }
 
     if (lowStockCount > 0) {
       ErrorService().logWarning('Low stock items detected', data: {
         'count': lowStockCount,
-        'total_items': stockItems.length,
+        'items': lowStockProducts.map((p) => p.name).take(5).toList(),
       });
+    } else {
+      ErrorService().logInfo('All stock levels are adequate');
     }
   } catch (e, stackTrace) {
     // Log error but don't block app startup
