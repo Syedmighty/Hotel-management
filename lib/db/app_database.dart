@@ -342,7 +342,7 @@ class Settings extends Table {
 @DataClassName('SyncQueueItem')
 class SyncQueue extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get tableName => text()();
+  TextColumn get syncTableName => text()();
   TextColumn get recordId => text()();
   TextColumn get operation => text()(); // INSERT, UPDATE, DELETE
   TextColumn get data => text()(); // JSON payload
@@ -358,7 +358,7 @@ class SyncQueue extends Table {
 @DataClassName('ConflictLog')
 class ConflictLogs extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get tableName => text()();
+  TextColumn get syncTableName => text()();
   TextColumn get recordId => text()();
   TextColumn get clientData => text()(); // JSON
   TextColumn get serverData => text()(); // JSON

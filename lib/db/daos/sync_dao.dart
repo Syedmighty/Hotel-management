@@ -19,7 +19,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
     required String data, // JSON payload
   }) {
     return into(syncQueue).insert(SyncQueueCompanion.insert(
-      tableName: tableName,
+      syncTableName: tableName,
       recordId: recordId,
       operation: operation,
       data: data,
@@ -37,7 +37,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
   // Get pending sync items by table
   Future<List<SyncQueueItem>> getPendingSyncItemsByTable(String tableName) {
     return (select(syncQueue)
-          ..where((sq) => sq.tableName.equals(tableName))
+          ..where((sq) => sq.syncTableName.equals(tableName))
           ..orderBy([(sq) => OrderingTerm.asc(sq.createdAt)]))
         .get();
   }
@@ -85,7 +85,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
     required String serverData, // JSON
   }) {
     return into(conflictLogs).insert(ConflictLogsCompanion.insert(
-      tableName: tableName,
+      syncTableName: tableName,
       recordId: recordId,
       clientData: clientData,
       serverData: serverData,
@@ -105,7 +105,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
   Future<List<ConflictLog>> getUnresolvedConflictsByTable(String tableName) {
     return (select(conflictLogs)
           ..where((cl) =>
-              cl.tableName.equals(tableName) & cl.isResolved.equals(false))
+              cl.syncTableName.equals(tableName) & cl.isResolved.equals(false))
           ..orderBy([(cl) => OrderingTerm.desc(cl.conflictDate)]))
         .get();
   }
