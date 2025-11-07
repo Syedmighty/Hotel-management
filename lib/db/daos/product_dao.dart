@@ -200,4 +200,53 @@ class ProductDao extends DatabaseAccessor<AppDatabase> with _$ProductDaoMixin {
           ..orderBy([(p) => OrderingTerm.asc(p.currentStock)]))
         .watch();
   }
+
+  // ============================================================================
+  // SYNC METHODS
+  // ============================================================================
+
+  // Get all unsynced products
+  Future<List<Product>> getUnsyncedProducts() {
+    return (select(products)..where((p) => p.isSynced.equals(false))).get();
+  }
+
+  // Get products modified since a specific timestamp
+  Future<List<Product>> getProductsSince(DateTime since) {
+    return (select(products)
+          ..where((p) => p.lastModified.isBiggerOrEqualValue(since))
+          ..orderBy([(p) => OrderingTerm.asc(p.lastModified)]))
+        .get();
+  }
+
+  // Mark product as synced
+  Future<int> markProductAsSynced(String uuid) {
+    return (update(products)..where((p) => p.uuid.equals(uuid)))
+        .write(ProductsCompanion(
+      isSynced: const Value(true),
+    ));
+  }
+
+  // Mark multiple products as synced
+  Future<void> markProductsAsSynced(List<String> uuids) async {
+    for (final uuid in uuids) {
+      await markProductAsSynced(uuid);
+    }
+  }
+
+  // Upsert product from server (insert or update)
+  Future<int> upsertProductFromServer(ProductsCompanion product) async {
+    return into(products).insertOnConflictUpdate(product);
+  }
+
+  // Batch upsert products from server
+  Future<void> batchUpsertProducts(List<ProductsCompanion> productList) async {
+    await batch((batch) {
+      batch.insertAllOnConflictUpdate(products, productList);
+    });
+  }
+
+  // Get product by UUID for sync conflict detection
+  Future<Product?> getProductForSync(String uuid) {
+    return (select(products)..where((p) => p.uuid.equals(uuid))).getSingleOrNull();
+  }
 }

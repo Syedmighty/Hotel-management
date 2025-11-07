@@ -6,6 +6,11 @@ import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 import 'package:hotel_inventory_management/utils/password_hasher.dart';
+import 'package:hotel_inventory_management/db/daos/product_dao.dart';
+import 'package:hotel_inventory_management/db/daos/supplier_dao.dart';
+import 'package:hotel_inventory_management/db/daos/purchase_dao.dart';
+import 'package:hotel_inventory_management/db/daos/issue_dao.dart';
+import 'package:hotel_inventory_management/db/daos/sync_dao.dart';
 
 part 'app_database.g.dart';
 
@@ -488,6 +493,25 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   int get schemaVersion => 1;
+
+  // ============================================================================
+  // DAO GETTERS (Lazy instantiation)
+  // ============================================================================
+
+  ProductDao? _productDao;
+  ProductDao get productDao => _productDao ??= ProductDao(this);
+
+  SupplierDao? _supplierDao;
+  SupplierDao get supplierDao => _supplierDao ??= SupplierDao(this);
+
+  PurchaseDao? _purchaseDao;
+  PurchaseDao get purchaseDao => _purchaseDao ??= PurchaseDao(this, productDao, supplierDao);
+
+  IssueDao? _issueDao;
+  IssueDao get issueDao => _issueDao ??= IssueDao(this);
+
+  SyncDao? _syncDao;
+  SyncDao get syncDao => _syncDao ??= SyncDao(this);
 
   @override
   MigrationStrategy get migration {

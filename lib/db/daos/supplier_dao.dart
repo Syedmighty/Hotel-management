@@ -135,4 +135,53 @@ class SupplierDao extends DatabaseAccessor<AppDatabase> with _$SupplierDaoMixin 
           ..orderBy([(s) => OrderingTerm.desc(s.balance)]))
         .watch();
   }
+
+  // ============================================================================
+  // SYNC METHODS
+  // ============================================================================
+
+  // Get all unsynced suppliers
+  Future<List<Supplier>> getUnsyncedSuppliers() {
+    return (select(suppliers)..where((s) => s.isSynced.equals(false))).get();
+  }
+
+  // Get suppliers modified since a specific timestamp
+  Future<List<Supplier>> getSuppliersSince(DateTime since) {
+    return (select(suppliers)
+          ..where((s) => s.lastModified.isBiggerOrEqualValue(since))
+          ..orderBy([(s) => OrderingTerm.asc(s.lastModified)]))
+        .get();
+  }
+
+  // Mark supplier as synced
+  Future<int> markSupplierAsSynced(String uuid) {
+    return (update(suppliers)..where((s) => s.uuid.equals(uuid)))
+        .write(SuppliersCompanion(
+      isSynced: const Value(true),
+    ));
+  }
+
+  // Mark multiple suppliers as synced
+  Future<void> markSuppliersAsSynced(List<String> uuids) async {
+    for (final uuid in uuids) {
+      await markSupplierAsSynced(uuid);
+    }
+  }
+
+  // Upsert supplier from server (insert or update)
+  Future<int> upsertSupplierFromServer(SuppliersCompanion supplier) async {
+    return into(suppliers).insertOnConflictUpdate(supplier);
+  }
+
+  // Batch upsert suppliers from server
+  Future<void> batchUpsertSuppliers(List<SuppliersCompanion> supplierList) async {
+    await batch((batch) {
+      batch.insertAllOnConflictUpdate(suppliers, supplierList);
+    });
+  }
+
+  // Get supplier by UUID for sync conflict detection
+  Future<Supplier?> getSupplierForSync(String uuid) {
+    return (select(suppliers)..where((s) => s.uuid.equals(uuid))).getSingleOrNull();
+  }
 }

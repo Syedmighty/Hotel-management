@@ -213,6 +213,75 @@ class PurchaseDao extends DatabaseAccessor<AppDatabase> with _$PurchaseDaoMixin 
           ..orderBy([(p) => OrderingTerm.desc(p.purchaseDate)]))
         .watch();
   }
+
+  // ============================================================================
+  // SYNC METHODS
+  // ============================================================================
+
+  // Get all unsynced purchases
+  Future<List<Purchase>> getUnsyncedPurchases() {
+    return (select(purchases)..where((p) => p.isSynced.equals(false))).get();
+  }
+
+  // Get purchases modified since a specific timestamp
+  Future<List<Purchase>> getPurchasesSince(DateTime since) {
+    return (select(purchases)
+          ..where((p) => p.lastModified.isBiggerOrEqualValue(since))
+          ..orderBy([(p) => OrderingTerm.asc(p.lastModified)]))
+        .get();
+  }
+
+  // Mark purchase as synced
+  Future<int> markPurchaseAsSynced(String uuid) {
+    return (update(purchases)..where((p) => p.uuid.equals(uuid)))
+        .write(PurchasesCompanion(
+      isSynced: const Value(true),
+    ));
+  }
+
+  // Mark multiple purchases as synced
+  Future<void> markPurchasesAsSynced(List<String> uuids) async {
+    for (final uuid in uuids) {
+      await markPurchaseAsSynced(uuid);
+    }
+  }
+
+  // Upsert purchase from server (insert or update)
+  Future<int> upsertPurchaseFromServer(PurchasesCompanion purchase) async {
+    return into(purchases).insertOnConflictUpdate(purchase);
+  }
+
+  // Batch upsert purchases from server
+  Future<void> batchUpsertPurchases(List<PurchasesCompanion> purchaseList) async {
+    await batch((batch) {
+      batch.insertAllOnConflictUpdate(purchases, purchaseList);
+    });
+  }
+
+  // Get purchase line items modified since a specific timestamp
+  Future<List<PurchaseLineItem>> getPurchaseLineItemsSince(DateTime since) {
+    return (select(purchaseLineItems)
+          ..where((li) => li.lastModified.isBiggerOrEqualValue(since))
+          ..orderBy([(li) => OrderingTerm.asc(li.lastModified)]))
+        .get();
+  }
+
+  // Upsert purchase line item from server
+  Future<int> upsertPurchaseLineItemFromServer(PurchaseLineItemsCompanion lineItem) async {
+    return into(purchaseLineItems).insertOnConflictUpdate(lineItem);
+  }
+
+  // Batch upsert purchase line items from server
+  Future<void> batchUpsertPurchaseLineItems(List<PurchaseLineItemsCompanion> lineItemList) async {
+    await batch((batch) {
+      batch.insertAllOnConflictUpdate(purchaseLineItems, lineItemList);
+    });
+  }
+
+  // Get purchase by UUID for sync conflict detection
+  Future<Purchase?> getPurchaseForSync(String uuid) {
+    return (select(purchases)..where((p) => p.uuid.equals(uuid))).getSingleOrNull();
+  }
 }
 
 // Helper class for purchase with line items
