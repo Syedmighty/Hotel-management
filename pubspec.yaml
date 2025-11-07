@@ -111,9 +111,11 @@ flutter:
     - assets/templates/
 
   # Fonts
-  fonts:
-    - family: Roboto
-      fonts:
-        - asset: assets/fonts/Roboto-Regular.ttf
-        - asset: assets/fonts/Roboto-Bold.ttf
-          weight: 700
+  # Uncomment and download Roboto fonts if you want custom typography
+  # Otherwise, Flutter will use Material Design's default Roboto font
+  # fonts:
+  #   - family: Roboto
+  #     fonts:
+  #       - asset: assets/fonts/Roboto-Regular.ttf
+  #       - asset: assets/fonts/Roboto-Bold.ttf
+  #         weight: 700
