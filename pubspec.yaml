@@ -1,0 +1,119 @@
+name: hotel_inventory_management
+description: A comprehensive hotel inventory management system with offline-first capabilities
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.4.9
+  riverpod_annotation: ^2.3.3
+
+  # Local Database (Drift)
+  drift: ^2.14.0
+  sqlite3_flutter_libs: ^0.5.18
+  path_provider: ^2.1.1
+  path: ^1.8.3
+
+  # Networking & API
+  dio: ^5.4.0
+  retrofit: ^4.0.3
+  json_annotation: ^4.8.1
+  http: ^1.1.2
+  udp: ^5.0.3
+
+  # Security
+  crypto: ^3.0.3
+  encrypt: ^5.0.3
+
+  # UI & Navigation
+  go_router: ^13.0.0
+  flutter_svg: ^2.0.9
+  cached_network_image: ^3.3.0
+  shimmer: ^3.0.0
+  flutter_spinkit: ^5.2.0
+
+  # Forms & Validation
+  flutter_form_builder: ^9.1.1
+  form_builder_validators: ^9.1.0
+
+  # PDF Generation
+  pdf: ^3.10.7
+  printing: ^5.11.1
+
+  # Excel Import/Export
+  excel: ^4.0.2
+  file_picker: ^6.1.1
+  share_plus: ^7.2.1
+
+  # Barcode/QR
+  mobile_scanner: ^3.5.5
+  qr_flutter: ^4.1.0
+
+  # Date & Time
+  intl: ^0.19.0
+
+  # Permissions
+  permission_handler: ^11.1.0
+
+  # Background Tasks
+  workmanager: ^0.5.2
+
+  # Device Info
+  device_info_plus: ^9.1.1
+
+  # Local Notifications
+  flutter_local_notifications: ^16.3.0
+
+  # UUID Generation
+  uuid: ^4.2.2
+
+  # Shared Preferences
+  shared_preferences: ^2.2.2
+
+  # Archive/ZIP
+  archive: ^3.4.10
+
+  # Connectivity
+  connectivity_plus: ^5.0.2
+
+  # Network Service Discovery (LAN)
+  network_info_plus: ^5.0.1
+  multicast_dns: ^0.3.2+4
+
+  # Logging
+  logger: ^2.0.2+1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+  # Code Generation
+  build_runner: ^2.4.7
+  drift_dev: ^2.14.0
+  riverpod_generator: ^2.3.9
+  json_serializable: ^6.7.1
+  retrofit_generator: ^8.0.6
+
+flutter:
+  uses-material-design: true
+
+  # Assets
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/templates/
+
+  # Fonts
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700
