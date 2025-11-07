@@ -85,7 +85,7 @@ class ConflictCard extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  _formatTableName(conflict.tableName),
+                  _formatTableName(conflict.syncTableName),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
