@@ -30,6 +30,7 @@ class Products extends Table {
   RealColumn get openingStock => real().withDefault(const Constant(0.0))();
   RealColumn get currentStock => real().withDefault(const Constant(0.0))();
   RealColumn get reorderLevel => real().withDefault(const Constant(0.0))();
+  RealColumn get minStockLevel => real().withDefault(const Constant(0.0))(); // Minimum stock level threshold
   BoolColumn get batchTracking => boolean().withDefault(const Constant(false))();
   TextColumn get barcode => text().nullable()(); // Added for barcode scanning
   DateTimeColumn get expiryDate => dateTime().nullable()();
@@ -49,10 +50,14 @@ class Products extends Table {
 class Suppliers extends Table {
   TextColumn get uuid => text()();
   TextColumn get name => text()();
-  TextColumn get contact => text()();
+  TextColumn get contactPerson => text().nullable()(); // Contact person name
+  TextColumn get phone => text()(); // Phone number
+  TextColumn get email => text().nullable()(); // Email address
+  TextColumn get contact => text()(); // Keep for backward compatibility
   TextColumn get gstin => text().nullable()();
   TextColumn get address => text()();
   RealColumn get balance => real().withDefault(const Constant(0.0))();
+  RealColumn get currentBalance => real().withDefault(const Constant(0.0))(); // Current account balance
   DateTimeColumn get lastModified => dateTime()();
   BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
   TextColumn get sourceDevice => text()();
@@ -68,6 +73,7 @@ class Suppliers extends Table {
 @DataClassName('Purchase')
 class Purchases extends Table {
   TextColumn get uuid => text()();
+  TextColumn get purchaseNo => text()(); // Purchase reference number
   TextColumn get supplierId => text().references(Suppliers, #uuid)();
   TextColumn get invoiceNo => text()();
   DateTimeColumn get purchaseDate => dateTime()();
@@ -110,11 +116,17 @@ class PurchaseLineItems extends Table {
 @DataClassName('IssueVoucher')
 class IssueVouchers extends Table {
   TextColumn get uuid => text()();
+  TextColumn get issueNo => text()(); // Issue voucher number
   TextColumn get department => text()(); // Chinese Kitchen, Banquet Hall, etc.
   TextColumn get issuedBy => text()();
+  TextColumn get issuedTo => text()(); // Department/person receiving
   TextColumn get receivedBy => text()();
+  TextColumn get requestedBy => text()(); // Person who requested
+  TextColumn get purpose => text().nullable()(); // Purpose of issue
   DateTimeColumn get issueDate => dateTime()();
-  TextColumn get approvalStatus => text().withDefault(const Constant('Pending'))(); // Pending, Received
+  TextColumn get status => text().withDefault(const Constant('Pending'))(); // Pending, Approved, Received
+  TextColumn get approvalStatus => text().withDefault(const Constant('Pending'))(); // Backward compatibility
+  RealColumn get totalAmount => real().withDefault(const Constant(0.0))(); // Total value
   TextColumn get remarks => text().nullable()();
   DateTimeColumn get lastModified => dateTime()();
   BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
@@ -145,12 +157,16 @@ class IssueLineItems extends Table {
 @DataClassName('WastageReturn')
 class WastageReturns extends Table {
   TextColumn get uuid => text()();
+  TextColumn get wastageNo => text()(); // Wastage reference number
   TextColumn get type => text()(); // Wastage, Return
   TextColumn get reason => text()();
   TextColumn get approvedBy => text().nullable()();
+  TextColumn get status => text().withDefault(const Constant('Pending'))(); // Pending, Approved, Completed
   BoolColumn get returnToSupplier => boolean().withDefault(const Constant(false))();
   TextColumn get supplierId => text().nullable().references(Suppliers, #uuid)();
   DateTimeColumn get date => dateTime()();
+  DateTimeColumn get wastageDate => dateTime()(); // Specific wastage date
+  RealColumn get totalAmount => real().withDefault(const Constant(0.0))(); // Total value
   TextColumn get remarks => text().nullable()();
   DateTimeColumn get lastModified => dateTime()();
   BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
@@ -171,6 +187,8 @@ class WastageLineItems extends Table {
   RealColumn get quantity => real()();
   RealColumn get rate => real()();
   RealColumn get amount => real()();
+  TextColumn get reason => text().nullable()(); // Reason for wastage
+  DateTimeColumn get expiryDate => dateTime().nullable()(); // Expiry date if applicable
   TextColumn get batchNo => text().nullable()();
   DateTimeColumn get lastModified => dateTime()();
 }
@@ -203,12 +221,15 @@ class StockAdjustments extends Table {
 @DataClassName('StockTransfer')
 class StockTransfers extends Table {
   TextColumn get uuid => text()();
+  TextColumn get transferNo => text()(); // Stock transfer reference number
   TextColumn get fromLocation => text()();
   TextColumn get toLocation => text()();
   TextColumn get transferredBy => text()();
   TextColumn get receivedBy => text().nullable()();
+  TextColumn get requestedBy => text()(); // Person who requested the transfer
   DateTimeColumn get transferDate => dateTime()();
   TextColumn get status => text().withDefault(const Constant('Pending'))(); // Pending, Received
+  RealColumn get totalAmount => real().withDefault(const Constant(0.0))(); // Total value of transfer
   TextColumn get remarks => text().nullable()();
   DateTimeColumn get lastModified => dateTime()();
   BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
@@ -228,6 +249,7 @@ class StockTransferLineItems extends Table {
   TextColumn get productId => text().references(Products, #uuid)();
   RealColumn get quantity => real()();
   RealColumn get rate => real()();
+  RealColumn get amount => real()(); // Calculated: quantity * rate
   TextColumn get batchNo => text().nullable()();
   DateTimeColumn get lastModified => dateTime()();
 }
@@ -238,6 +260,7 @@ class StockTransferLineItems extends Table {
 @DataClassName('PhysicalCount')
 class PhysicalCounts extends Table {
   TextColumn get uuid => text()();
+  TextColumn get countNo => text()(); // Physical count reference number
   DateTimeColumn get countDate => dateTime()();
   TextColumn get countedBy => text()();
   TextColumn get verifiedBy => text().nullable()();
@@ -261,7 +284,9 @@ class PhysicalCountLineItems extends Table {
   TextColumn get productId => text().references(Products, #uuid)();
   RealColumn get systemStock => real()();
   RealColumn get physicalStock => real()();
+  RealColumn get countedQuantity => real()(); // Alias or additional counted quantity field
   RealColumn get variance => real()(); // physical - system
+  TextColumn get varianceReason => text().nullable()(); // Reason for variance
   TextColumn get remarks => text().nullable()();
   DateTimeColumn get lastModified => dateTime()();
 }
